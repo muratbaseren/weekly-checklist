@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="Haftalık görev takip uygulaması">
+    <title>Haftalık Checklist</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #5a67d8;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .week-info {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .print-btn {
+            display: block;
+            margin: 0 auto 30px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .print-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .checklist-table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .checklist-table thead {
+            background: linear-gradient(135deg, #a8b7ff 0%, #c9b3e6 100%);
+        }
+
+        .checklist-table th {
+            padding: 15px;
+            text-align: left;
+            color: #2d3748;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .checklist-table th:first-child {
+            border-radius: 10px 0 0 0;
+        }
+
+        .checklist-table th:last-child {
+            border-radius: 0 10px 0 0;
+        }
+
+        .checklist-table tbody tr {
+            transition: background-color 0.3s;
+        }
+
+        .checklist-table tbody tr:nth-child(even) {
+            background-color: #f7fafc;
+        }
+
+        .checklist-table tbody tr:hover {
+            background-color: #edf2f7;
+        }
+
+        .checklist-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .day-cell {
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 1.05em;
+        }
+
+        .task-cell {
+            color: #2d3748;
+        }
+
+        .checkbox-cell {
+            text-align: center;
+        }
+
+        .checkbox-cell input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .task-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .task-label {
+            margin-left: 10px;
+            color: #4a5568;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .container {
+                box-shadow: none;
+                padding: 20px;
+            }
+
+            .print-btn {
+                display: none;
+            }
+
+            .checklist-table tbody tr:hover {
+                background-color: transparent;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .checklist-table {
+                font-size: 0.9em;
+            }
+
+            .checklist-table th,
+            .checklist-table td {
+                padding: 10px 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Service Worker Kaydı
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker kayıtlı:', reg))
+                    .catch(err => console.log('Service Worker hatası:', err));
+            });
+        }
+
+        // LocalStorage ile checkbox durumlarını kaydet
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            
+            // Kaydedilmiş durumları yükle
+            checkboxes.forEach((checkbox, index) => {
+                const saved = localStorage.getItem(`checkbox-${index}`);
+                if (saved === 'true') {
+                    checkbox.checked = true;
+                }
+                
+                // Değişiklikleri kaydet
+                checkbox.addEventListener('change', () => {
+                    localStorage.setItem(`checkbox-${index}`, checkbox.checked);
+                });
+            });
+
+            // Hafta tarihini kaydet ve yükle
+            const weekInfo = document.querySelector('.week-info');
+            const savedWeek = localStorage.getItem('week-date');
+            if (savedWeek) {
+                weekInfo.textContent = savedWeek;
+            }
+            
+            weekInfo.addEventListener('click', () => {
+                const newWeek = prompt('Hafta tarihini girin (gg/aa/yyyy - gg/aa/yyyy):', weekInfo.textContent);
+                if (newWeek) {
+                    weekInfo.textContent = newWeek;
+                    localStorage.setItem('week-date', newWeek);
+                }
+            });
+        });
+
+        // Hafta başı otomatik sıfırlama (Pazartesi)
+        const today = new Date();
+        const lastReset = localStorage.getItem('last-reset');
+        const dayOfWeek = today.getDay();
+        
+        if (dayOfWeek === 1 && lastReset !== today.toDateString()) {
+            if (confirm('Yeni hafta başladı! Checklist\'i sıfırlamak ister misin?')) {
+                const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach((checkbox, index) => {
+                    localStorage.removeItem(`checkbox-${index}`);
+                    checkbox.checked = false;
+                });
+                localStorage.setItem('last-reset', today.toDateString());
+            }
+        }
+    </script>
+    <div class="container">
+        <h1>📋 Haftalık Checklist</h1>
+        <div class="week-info">Hafta: ___/___/2024 - ___/___/2024</div>
+        
+        <button class="print-btn" onclick="window.print()">🖨️ Yazdır</button>
+
+        <table class="checklist-table">
+            <thead>
+                <tr>
+                    <th>Gün</th>
+                    <th>Görevler</th>
+                    <th>Tamamlandı</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="day-cell">📅 Pazartesi</td>
+                    <td class="task-cell">
+                        • Test Çözme<br>
+                        • Duolingo<br>
+                        • Procreate Çalışma
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="day-cell">📅 Salı</td>
+                    <td class="task-cell">
+                        • Test Çözme<br>
+                        • Duolingo<br>
+                        • Open English Aktivite
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="day-cell">📅 Çarşamba</td>
+                    <td class="task-cell">
+                        • Test Çözme<br>
+                        • Duolingo<br>
+                        • Open English Aktivite<br>
+                        • Open English Konuşma<br>
+                        • Piano Çalışma
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="day-cell">📅 Perşembe</td>
+                    <td class="task-cell">
+                        • Test Çözme<br>
+                        • Duolingo<br>
+                        • Open English Aktivite
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="day-cell">📅 Cuma</td>
+                    <td class="task-cell">
+                        • Test Çözme<br>
+                        • Duolingo<br>
+                        • Open English Konuşma
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="day-cell">📅 Cumartesi</td>
+                    <td class="task-cell">
+                        • Duolingo<br>
+                        • Procreate Çalışma
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="day-cell">📅 Pazar</td>
+                    <td class="task-cell">
+                        • Test Çözme<br>
+                        • Duolingo<br>
+                        • Open English Aktivite<br>
+                        • Open English Konuşma
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox"><br>
+                        <input type="checkbox">
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
