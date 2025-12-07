@@ -1,10 +1,10 @@
 const CACHE_NAME = 'checklist-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/weekly-checklist',
+  '/weekly-checklist/index.html',
+  '/weekly-checklist/manifest.json',
+  '/weekly-checklist/icon-192.png',
+  '/weekly-checklist/icon-512.png'
 ];
 
 // Service Worker kurulumu
@@ -63,7 +63,7 @@ self.addEventListener('fetch', event => {
       })
       .catch(() => {
         // Offline iken gösterilecek fallback sayfa
-        return caches.match('/index.html');
+        return caches.match('/weekly-checklist/index.html');
       })
   );
 });
